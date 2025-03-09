@@ -1,0 +1,49 @@
+const express = require('express');
+const { PublicKey, Connection } = require('@solana/web3.js');
+const { verifySignature } = require('./utils'); // Función auxiliar para verificar firmas
+const app = express();
+const PORT = 3000;
+const ALLOWED_IPS = ['127.0.0.1']; // Lista de IPs permitidas (configurable)
+const PROGRAM_ID = new PublicKey('GOW3X...'); // ID del programa en Solana
+const connection = new Connection('https://api.mainnet-beta.solana.com');
+
+app.use(express.json());
+
+// Middleware para restringir por IP
+app.use((req, res, next) => {
+  const clientIp = req.ip;
+  if (!ALLOWED_IPS.includes(clientIp)) {
+    return res.status(403).json({ error: 'Acceso denegado' });
+  }
+  next();
+});
+
+// Endpoint para autenticación
+app.post('/auth', async (req, res) => {
+  const { publicKey, signature, message } = req.body;
+  try {
+    const isValid = verifySignature(message, signature, publicKey);
+    if (!isValid) throw new Error('Firma inválida');
+    
+    // Verificar si es admin en el contrato
+    const configAccount = await connection.getAccountInfo(PROGRAM_ID);
+    const admins = /* Parsear datos del config */;
+    if (!admins.includes(publicKey)) throw new Error('No autorizado');
+    
+    res.json({ success: true, message: 'Autenticado' });
+  } catch (error) {
+    res.status(401).json({ error: error.message });
+  }
+});
+
+// Endpoint para registrar votación
+app.post('/vote-result', async (req, res) => {
+  const { publicKey, signature, proposalId, yesVotes, noVotes } = req.body;
+  // Verificar firma y autorización como en /auth
+  // Lógica para enviar transacción al contrato (recordVoteResult)
+  res.json({ success: true });
+});
+
+app.listen(PORT, () => {
+  console.log(`Backend corriendo en https://localhost:${PORT}`);
+});
